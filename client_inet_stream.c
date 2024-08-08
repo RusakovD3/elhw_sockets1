@@ -1,47 +1,59 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <netinet/in.h>
+#include <unistd.h>
 #include <arpa/inet.h>
 
 #define PORT 8080
+#define SIZE_MSG 512
+#define IP_ADDR_SND "192.168.0.123"
 
 int main() {
-    struct sockaddr_in serv_addr;
-    char *hello = "Hello";
-    char buffer[1024] = {0};
     int sock = 0;
+    struct sockaddr_in serv_addr;
+    char buf_rcv[SIZE_MSG] = {0};
+    char buf_snd[SIZE_MSG] = "Hello from Client!";
 
-    // Создаем файловый дескриптор сокета
+    // Создание сокета
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        printf("\n Socket creation error \n");
-        return -1;
+        perror("socket failed");
+        exit(EXIT_FAILURE);
     }
 
-    // Настраиваем соединение сокета
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
-    
-    // Конвертируем IPv4 и IPv6 адреса из текста в двоичную форму
-    if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0) {
-        printf("\nInvalid address/ Address not supported \n");
-        return -1;
+
+    // Преобразование адреса IPv4 из текста в двоичный вид
+    if (inet_pton(AF_INET, IP_ADDR_SND, &serv_addr.sin_addr) <= 0) {
+        printf("Invalid address/ Address not supported\n");
+        exit(EXIT_FAILURE);
     }
 
-    // Подключаемся к серверу на локальном хосте
+    // Подключаемся к серверу
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        printf("\nConnection Failed \n");
-        return -1;
+        perror("Connection Failed");
+        exit(EXIT_FAILURE);
     }
+
+    printf("Connected to server\n");
 
     // Отправляем сообщение
-    send(sock, hello, strlen(hello), 0);
-    printf("Hello message sent\n");
+    if (send(sock, buf_snd, strlen(buf_snd), 0) < 0) {
+        perror("send error");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
 
-    // Получаем ответ от сервера
-    read(sock, buffer, 1024);
-    printf("Message from server: %s\n", buffer);
+    printf("Message sent from client\n");
+
+    // Читаем ответ
+    if (read(sock, buf_rcv, SIZE_MSG) < 0) {
+        perror("read error");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Message from server: %s\n", buf_rcv);
 
     // Закрываем сокет
     close(sock);
